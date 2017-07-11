@@ -47,7 +47,7 @@ server.listen()
   });
 ```
 
-There is a full example in [example/embed.js](https://github.com/johnspackman/chrome-remote-multiplex/blob/master/example/embed.js')
+There is a full example in [example/embed.js](https://github.com/johnspackman/chrome-remote-multiplex/blob/master/example/embed.js)
 
 
 ## Contributing
