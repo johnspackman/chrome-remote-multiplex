@@ -3,11 +3,13 @@ Proxy Server application which allows *multiple* Chrome DevTools Clients to simu
 (ie Chrome Headless) instance.
 
 Google Chrome Headless (or any other Devtools Protocol implementation) only allows one client to control
-it at any particular time; this means that if you have an application which uses https://github.com/cyrus-and/chrome-remote-interface
+it at any particular time; this means that if you have an application which uses 
+[chrome-remote-interface](https://github.com/cyrus-and/chrome-remote-interface)
 to operate the web page, you cannot debug that web page while it is being controlled by your application.
 
-By using https://github.com/johnspackman/chrome-remote-multiplex you can work around this restriction, by connecting your app and your
-debugger(s) to chrome-remote-multiplex and allowing it to handle the single connection to Chrome Headless. 
+By using [chrome-remote-multiplex](https://github.com/johnspackman/chrome-remote-multiplex) you can work 
+around this restriction, by connecting your app and your debugger(s) to chrome-remote-multiplex and allowing 
+it to handle the single connection to Chrome Headless. 
  
 
 ## Getting started
@@ -45,7 +47,7 @@ server.listen()
   });
 ```
 
-There is a full example in 'https://github.com/johnspackman/chrome-remote-multiplex/blob/master/example/embed.js'
+There is a full example in [example/embed.js](https://github.com/johnspackman/chrome-remote-multiplex/blob/master/example/embed.js')
 
 
 ## Contributing
