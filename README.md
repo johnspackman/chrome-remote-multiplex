@@ -27,6 +27,27 @@ chrome-remote-multiplex --connect-to=localhost:9222 server-port=9223
 ```
 
 
+## Embedding in your application
+You can embed the multiplex proxy server in your own application:
+
+```
+var MultiplexServer = require("chrome-remote-multiplex").MultiplexServer;
+var ChromeRemoteInterface = require('chrome-remote-interface');
+
+var server = new MultiplexServer({
+  logging: "debug"
+});
+
+server.listen()
+  .then(() => {
+    // Use chrome-remote-interface to connect back to the server we've just created
+    return ChromeRemoteInterface({ port: server.options.listenPort });
+  });
+```
+
+There is a full example in 'https://github.com/johnspackman/chrome-remote-multiplex/blob/master/example/embed.js'
+
+
 ## Contributing
 Please feel free to raise issues, pull requests, and questions.
 

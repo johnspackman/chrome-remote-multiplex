@@ -1,4 +1,4 @@
 
 module.exports = {
-    MultiplexServer: require("dist/multiplex").default
+    MultiplexServer: require("./dist/multiplex").default
 };

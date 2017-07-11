@@ -462,6 +462,10 @@ export default class MultiplexServer extends EventEmitter {
     
     const app = Express();
 
+    function reportHttpError(req, err) {
+      LOG.error("Error in " + req.method + " " + req.originalUrl + ": " + err);
+    }
+    
     /*
      * Web page that provides links to debug
      */
@@ -483,15 +487,17 @@ export default class MultiplexServer extends EventEmitter {
 </body></html>`);
     
       app.get('/', function (req, res) {
-        t.refreshTargets().then(function() {
-          res.send(template({
-            multiplex: t,
-            DEFAULT_DEVTOOLS_URL: DEFAULT_DEVTOOLS_URL,
-            url: function(target) { 
-              return DEFAULT_DEVTOOLS_URL + target.webSocketDebuggerUrl.replace(/^ws:\/\//, "ws=/") + "&remoteFrontend=true";
-            }
-          }));
-        });
+        t.refreshTargets()
+          .then(function() {
+            res.send(template({
+              multiplex: t,
+              DEFAULT_DEVTOOLS_URL: DEFAULT_DEVTOOLS_URL,
+              url: function(target) { 
+                return DEFAULT_DEVTOOLS_URL + target.webSocketDebuggerUrl.replace(/^ws:\/\//, "ws=/") + "&remoteFrontend=true";
+              }
+            }));
+          })
+          .catch(reportHttpError.bind(this, req));
       });
     })();
 
@@ -499,10 +505,12 @@ export default class MultiplexServer extends EventEmitter {
      * JSON data showing the targets which can be connected to
      */
     function getTargetList(req, res) {
-      t.refreshTargets().then(function() {
-        res.set('Content-Type', 'text/json');
-        res.send(JSON.stringify(t.targets, null, 2));
-      });
+      t.refreshTargets()
+        .then(function() {
+          res.set('Content-Type', 'text/json');
+          res.send(JSON.stringify(t.targets, null, 2));
+        })
+        .catch(reportHttpError.bind(this, req));
     }
     app.get('/json', getTargetList);
     app.get('/json/list', getTargetList);

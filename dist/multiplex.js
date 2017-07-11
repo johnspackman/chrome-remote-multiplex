@@ -571,6 +571,10 @@ var MultiplexServer = function (_EventEmitter4) {
 
       var app = Express();
 
+      function reportHttpError(req, err) {
+        LOG.error("Error in " + req.method + " " + req.originalUrl + ": " + err);
+      }
+
       /*
        * Web page that provides links to debug
        */
@@ -588,7 +592,7 @@ var MultiplexServer = function (_EventEmitter4) {
                 return DEFAULT_DEVTOOLS_URL + target.webSocketDebuggerUrl.replace(/^ws:\/\//, "ws=/") + "&remoteFrontend=true";
               }
             }));
-          });
+          }).catch(reportHttpError.bind(this, req));
         });
       })();
 
@@ -599,7 +603,7 @@ var MultiplexServer = function (_EventEmitter4) {
         t.refreshTargets().then(function () {
           res.set('Content-Type', 'text/json');
           res.send(JSON.stringify(t.targets, null, 2));
-        });
+        }).catch(reportHttpError.bind(this, req));
       }
       app.get('/json', getTargetList);
       app.get('/json/list', getTargetList);
