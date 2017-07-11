@@ -1,6 +1,6 @@
 {
 	"name": "chrome-remote-multiplex",
-	"version": "0.1.0",
+	"version": "0.1.3",
 	"description": "Allows multiple Chrome DevTools Clients to connect to a single Remote Debugger (ie Chrome Headless) instance",
 	"main": "index.js",
 	"scripts": {
@@ -40,7 +40,7 @@
 	},
 	"homepage": "https://github.com/johnspackman/chrome-remote-multiplex#readme",
 	"bin": {
-		"chrome-remote-interface": "./dist/cmdline.js"
+		"chrome-remote-multiplex": "./dist/cmdline.js"
 	},
 	"files": [
 		"dist"

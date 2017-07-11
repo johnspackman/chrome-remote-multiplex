@@ -2,6 +2,8 @@
 
 import MultiplexServer from "./multiplex";
 
+var PACKAGE = require("../package.json");
+
 var argv = require("yargs")
   .usage("$0 [args]")
   .options({
@@ -31,7 +33,10 @@ var server = new MultiplexServer({
 });
 server.listen()
   .then(() => {
-    console.log("Connected to remote headless Chrome at http://" + server.options.remoteClient + 
+    console.log(
+        PACKAGE.name + " v" + PACKAGE.version + "\n" +
+        "Report issues at " + PACKAGE.bugs.url + "\n\n" +
+        "Connected to remote headless Chrome at http://" + server.options.remoteClient + 
         "\nTo start debugging, browse to http://localhost:" + server.options.listenPort);
     return new Promise(() => {});
   })

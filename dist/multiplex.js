@@ -37,7 +37,6 @@ var WebSocket = require('ws');
 var Express = require('express');
 var Http = require('http');
 var Url = require('url');
-var Uuid = require('uuid');
 var Dot = require('dot');
 
 var Logger = function () {

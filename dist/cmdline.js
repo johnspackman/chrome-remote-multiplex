@@ -7,6 +7,8 @@ var _multiplex2 = _interopRequireDefault(_multiplex);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+var PACKAGE = require("../package.json");
+
 var argv = require("yargs").usage("$0 [args]").options({
   "connect-to": {
     default: "localhost:9222",
@@ -31,7 +33,7 @@ var server = new _multiplex2.default({
   logging: argv.debug ? "debug" : "info"
 });
 server.listen().then(function () {
-  console.log("Connected to remote headless Chrome at http://" + server.options.remoteClient + "\nTo start debugging, browse to http://localhost:" + server.options.listenPort);
+  console.log(PACKAGE.name + " v" + PACKAGE.version + "\n" + "Report issues at " + PACKAGE.bugs.url + "\n\n" + "Connected to remote headless Chrome at http://" + server.options.remoteClient + "\nTo start debugging, browse to http://localhost:" + server.options.listenPort);
   return new Promise(function () {});
 }).catch(function (err) {
   return console.log("Error while talking to remote headless Chrome: " + err);
