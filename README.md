@@ -1,5 +1,5 @@
 # chrome-remote-multiplex
-Proxy Server application for Chrome DevTools Clients to simultaneously connect to a single Remote Debugger 
+Proxy Server application which allows *multiple* Chrome DevTools Clients to simultaneously connect to a *single* Remote Debugger 
 (ie Chrome Headless) instance.
 
 Google Chrome Headless (or any other Devtools Protocol implementation) only allows one client to control
