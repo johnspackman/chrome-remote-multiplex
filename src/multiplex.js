@@ -643,28 +643,31 @@ export default class MultiplexServer extends EventEmitter {
     
     // REST API: auto-close a target
     app.get('/json/auto-close/*', (req, res) => {
-      var id = req.originalUrl.match(/\/json\/auto-close\/(.*)$/)[1];
-      var proxy = t._proxies[id];
-      if (proxy) {
-        if (proxy.isUnused()) {
-          proxy.closeTarget().close();
-          LOG.info("Closing target " + id + " due to /json/auto-close")
-          res.send("Target is closing");
-        } else {
-          proxy.autoClose = true;
-          t.targetsById[id].autoClose = true;
-          LOG.info("Marking target " + id + " to auto close")
-          res.send("Target set to auto close");
-        }
-      } else {
-        var target = t.targetsById[id];
-        if (target) {
-          target.autoClose = true;
-          LOG.info("Marking target " + id + " to auto close after first use")
-          res.send("Target will close after first use");
-        } else 
-          res.status(500).send("Unrecognised target id " + id);
-      }
+      t.refreshTargets()
+        .then(() => {
+          var id = req.originalUrl.match(/\/json\/auto-close\/(.*)$/)[1];
+          var proxy = t._proxies[id];
+          if (proxy) {
+            if (proxy.isUnused()) {
+              proxy.closeTarget().close();
+              LOG.info("Closing target " + id + " due to /json/auto-close")
+              res.send("Target is closing");
+            } else {
+              proxy.autoClose = true;
+              t.targetsById[id].autoClose = true;
+              LOG.info("Marking target " + id + " to auto close")
+              res.send("Target set to auto close");
+            }
+          } else {
+            var target = t.targetsById[id];
+            if (target) {
+              target.autoClose = true;
+              LOG.info("Marking target " + id + " to auto close after first use")
+              res.send("Target will close after first use");
+            } else 
+              res.status(500).send("Unrecognised target id " + id);
+          }
+        });
     });
     
     // REST API: get version numbers

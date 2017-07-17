@@ -748,27 +748,29 @@ var MultiplexServer = function (_EventEmitter4) {
 
       // REST API: auto-close a target
       app.get('/json/auto-close/*', function (req, res) {
-        var id = req.originalUrl.match(/\/json\/auto-close\/(.*)$/)[1];
-        var proxy = t._proxies[id];
-        if (proxy) {
-          if (proxy.isUnused()) {
-            proxy.closeTarget().close();
-            LOG.info("Closing target " + id + " due to /json/auto-close");
-            res.send("Target is closing");
+        t.refreshTargets().then(function () {
+          var id = req.originalUrl.match(/\/json\/auto-close\/(.*)$/)[1];
+          var proxy = t._proxies[id];
+          if (proxy) {
+            if (proxy.isUnused()) {
+              proxy.closeTarget().close();
+              LOG.info("Closing target " + id + " due to /json/auto-close");
+              res.send("Target is closing");
+            } else {
+              proxy.autoClose = true;
+              t.targetsById[id].autoClose = true;
+              LOG.info("Marking target " + id + " to auto close");
+              res.send("Target set to auto close");
+            }
           } else {
-            proxy.autoClose = true;
-            t.targetsById[id].autoClose = true;
-            LOG.info("Marking target " + id + " to auto close");
-            res.send("Target set to auto close");
+            var target = t.targetsById[id];
+            if (target) {
+              target.autoClose = true;
+              LOG.info("Marking target " + id + " to auto close after first use");
+              res.send("Target will close after first use");
+            } else res.status(500).send("Unrecognised target id " + id);
           }
-        } else {
-          var target = t.targetsById[id];
-          if (target) {
-            target.autoClose = true;
-            LOG.info("Marking target " + id + " to auto close after first use");
-            res.send("Target will close after first use");
-          } else res.status(500).send("Unrecognised target id " + id);
-        }
+        });
       });
 
       // REST API: get version numbers
