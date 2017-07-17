@@ -49,8 +49,8 @@ $ chrome-remote-interface close 'b049bb56-de7d-424c-a331-6ae44cf7ae01'
 ```
 
 Or as http requests, try this in your browser:
-    `localhost:9222/json/new`           // output the new instance information
-    `localhost:9222/json/close/{id}`    // where `{id}` is taken from the output of `/json/new` 
+- `localhost:9222/json/new` -- output the new instance information
+- `localhost:9222/json/close/{id}` -- where `{id}` is taken from the output of `/json/new` 
 
 If your application is running in a server environment, you obviously need to make sure that you keep track of all of the
 instances that you create via the `new` command and make sure that you `close` them when they're no longer needed.
