@@ -56,12 +56,13 @@ If your application is running in a server environment, you obviously need to ma
 instances that you create via the `new` command and make sure that you `close` them when they're no longer needed.
 
 While this is straightforward to do in ideal circumstances, in a complex server application it can become tricky to manage
-those instances, especially if you occasionally want to sneak in with a separate connection and keep the the instance open 
-while you debug it.
+those instances, especially if you want to recover gracefully from application crashes or occasionally want to sneak in 
+with a separate connection and keep the the instance open while you debug it.
 
 [chrome-remote-multiplex](https://github.com/johnspackman/chrome-remote-multiplex) adds an automatic close function that
-tracks connections and when the last one has disconnected from an instance, the instance itself is closed down - this is
-garbage collection for your browser tabs.
+tracks connections and when the last one has disconnected from an instance, the instance itself is closed down.  This means
+that even if your application crashes, the ab is cleaned up properly because the operating system will close the socket which
+will disconnect from the MultiplexServer and then cause the tab to be removed also - this is garbage collection for your browser tabs.
 
 To make a tab automatically close, use the new `/json/auto-close/{id}` API, for example:
 
