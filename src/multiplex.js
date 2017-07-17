@@ -24,6 +24,7 @@ const Http = require('http');
 const Url = require('url');
 const Dot = require('dot'); 
 
+var PACKAGE = require("../package.json");
 
 class Logger {
   constructor() {
@@ -34,6 +35,10 @@ class Logger {
     console.log(...args);
   }
   
+  info(...args) {
+    this.log(...args);
+  }
+
   error(...args) {
     this.log(...args);
   }
@@ -229,6 +234,13 @@ class DevtoolsClient extends EventEmitter {
     });
   }
   
+  close() {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+  }
+  
   onMessageFromClient(data) {
     const t = this;
     return t.remoteDebuggerProxy.sendMessageToServer(this, data);
@@ -302,14 +314,37 @@ class RemoteDebuggerProxy extends EventEmitter {
   }
   
   /**
+   * Closes the connection to the server and clients
+   */
+  close() {
+    if (this.ws) {
+      var ws = this.ws;
+      this.ws = null;
+      ws.close();
+      this.devtoolsClients.forEach((client) => client.close());
+      this.emit("close");
+    }
+  }
+
+  /**
+   * Returns true if there are no devtools clients 
+   */
+  isUnused() {
+    return this.devtoolsClients.length == 0;
+  }
+  
+  /**
    * Detaches a DevTools client
    */
   detach(devtoolsClient) {
     for (var i = 0; i < this.devtoolsClients.length; i++)
       if (this.devtoolsClients[i] === devtoolsClient) {
         this.devtoolsClients.splice(i, 1);
-        return;
+        break;
       }
+    this.target.numberOfClients = this.devtoolsClients.length;
+    if (!!this.ws && this.autoClose && this.devtoolsClients.length == 0)
+      this.closeTarget().then(() => this.close());
   }
   
   /**
@@ -317,6 +352,20 @@ class RemoteDebuggerProxy extends EventEmitter {
    */
   attach(devtoolsClient) {
     this.devtoolsClients.push(devtoolsClient);
+    this.target.numberOfClients = this.devtoolsClients.length;
+  }
+  
+  /**
+   * Shutsdown the target
+   */
+  closeTarget() {
+    var t = this;
+    return httpGet({
+      hostname: t.multiplexServer.options.remoteClientHostname,
+      port: t.multiplexServer.options.remoteClientPort,
+      path: "/json/close/" + t.target.id,
+      method: 'GET'
+    });
   }
   
   /**
@@ -479,7 +528,7 @@ export default class MultiplexServer extends EventEmitter {
     {{~ it.multiplex.targets :target }}
           <li>
             <a href="{{= it.url(target) }}">
-              {{= target.title }}
+              {{= it.title(target) }}
             </a>
           </li>
     {{~}}
@@ -494,26 +543,141 @@ export default class MultiplexServer extends EventEmitter {
               DEFAULT_DEVTOOLS_URL: DEFAULT_DEVTOOLS_URL,
               url: function(target) { 
                 return DEFAULT_DEVTOOLS_URL + target.webSocketDebuggerUrl.replace(/^ws:\/\//, "ws=/") + "&remoteFrontend=true";
+              },
+              title: function(target) {
+                var str = target.title;
+                if (target.autoClose)
+                  str += " (set to auto-close)";
+                return str;
               }
             }));
           })
           .catch(reportHttpError.bind(this, req));
       });
     })();
+    
+    function getContentType(response) {
+      var contentType = response.headers["content-type"];
+      if (contentType) {
+        var pos = contentType.indexOf(';');
+        contentType = contentType.substring(0, pos);
+      }
+      return contentType;
+    }
 
-    /*
-     * JSON data showing the targets which can be connected to
-     */
-    function getTargetList(req, res) {
+    // Gets JSON from the remote server
+    function getJson(path) {
+      return httpGet({
+        hostname: t.options.remoteClientHostname,
+        port: t.options.remoteClientPort,
+        path: path,
+        method: 'GET'
+      }).then((obj) => {
+        var contentType = getContentType(obj.response);
+        if (contentType !== "application/json")
+          LOG.warn("Expecting JSON from " + path + " but found wrong content type: " + contentType);
+        
+        try {
+          return JSON.parse(obj.data);
+        } catch(ex) {
+          LOG.warn("Cannot parse JSON returned from " + path);
+          return null;
+        }
+      });
+    }
+    
+    // Gets JSON from the remote server and copies it to the client
+    function copyToClient(req, res) {
+      return httpGet({
+        hostname: t.options.remoteClientHostname,
+        port: t.options.remoteClientPort,
+        path: req.originalUrl,
+        method: 'GET'
+      }).then((obj) => {
+        var contentType = getContentType(obj.response);
+        if (contentType)
+          res.set("Content-Type", contentType);
+        res.send(obj.data);
+      });
+    }
+    
+    // REST API: list targets
+    app.get(["/json", "/json/list"], (req, res) => {
       t.refreshTargets()
         .then(function() {
-          res.set('Content-Type', 'text/json');
+          res.set("Content-Type", "application/json");
           res.send(JSON.stringify(t.targets, null, 2));
         })
         .catch(reportHttpError.bind(this, req));
-    }
-    app.get('/json', getTargetList);
-    app.get('/json/list', getTargetList);
+    });
+    
+    // REST API: create a new target
+    app.get('/json/new', (req, res) => {
+      return getJson("/json/new").then(function(target) {
+        if (target)
+          target = t._addTarget(target);
+        res.set("Content-Type", "application/json");
+        res.send(JSON.stringify(target, null, 2));
+      });
+    });
+    
+    // REST API: close a target
+    app.get('/json/close/*', (req, res) => {
+      return httpGet({
+        hostname: t.options.remoteClientHostname,
+        port: t.options.remoteClientPort,
+        path: req.originalUrl,
+        method: 'GET'
+      }).then((obj) => {
+        var id = req.originalUrl.match(/\/json\/close\/(.*)$/)[1];
+        var proxy = t.proxies[id];
+        if (proxy)
+          proxy.close();
+        
+        var contentType = getContentType(obj.response);
+        if (contentType)
+          res.set("Content-Type", contentType);
+        res.send(obj.data);
+      });
+    });
+    
+    // REST API: auto-close a target
+    app.get('/json/auto-close/*', (req, res) => {
+      var id = req.originalUrl.match(/\/json\/auto-close\/(.*)$/)[1];
+      var proxy = t._proxies[id];
+      if (proxy) {
+        if (proxy.isUnused()) {
+          proxy.closeTarget().close();
+          LOG.info("Closing target " + id + " due to /json/auto-close")
+          res.send("Target is closing");
+        } else {
+          proxy.autoClose = true;
+          t.targetsById[id].autoClose = true;
+          LOG.info("Marking target " + id + " to auto close")
+          res.send("Target set to auto close");
+        }
+      } else {
+        var target = t.targetsById[id];
+        if (target) {
+          target.autoClose = true;
+          LOG.info("Marking target " + id + " to auto close after first use")
+          res.send("Target will close after first use");
+        } else 
+          res.status(500).send("Unrecognised target id " + id);
+      }
+    });
+    
+    // REST API: get version numbers
+    app.get('/json/version', (req, res) => {
+      return getJson(req.originalUrl).then(function(json) {
+        json["Chrome-Remote-Multiplex-Version"] = PACKAGE.version;
+        res.set("Content-Type", "application/json");
+        res.send(JSON.stringify(json, null, 2));
+      });
+    });
+
+    app.get('/json/protocol', copyToClient);
+    app.get('/json/activate', copyToClient);
 
     const webServer = Http.createServer(app);
     const proxies = this._proxies = {};
@@ -555,7 +719,18 @@ export default class MultiplexServer extends EventEmitter {
           proxy = proxies[uuid] = new RemoteDebuggerProxy(t, target);
           proxy.connect().then(function() {
             return proxy.upgrade(request, socket, head);
-          })
+          });
+          proxy.on('close', () => {
+            delete t.targetsById[uuid];
+            for (var i = 0; i < t.targets.length; i++)
+              if (t.targets[i].id === uuid) {
+                t.targets.splice(i, 1);
+                break;
+              }
+          });
+          if (target.autoClose)
+            proxy.autoClose = true;
+      
         } else {
           return proxy.upgrade(request, socket, head);
         }
@@ -586,33 +761,56 @@ export default class MultiplexServer extends EventEmitter {
       port: t.options.remoteClientPort,
       path: '/json',
       method: 'GET'
-    }).then(function(data) {
+    }).then(function(obj) {
       var json = null;
-      if (!data) {
+      if (!obj.data) {
         LOG.debug("No data received from " + t.options.remoteClient);
         return;
       }
       try {
-        json = JSON.parse(data);
+        json = JSON.parse(obj.data);
       } catch(ex) {
         LOG.error("Error while parsing JSON from " + t.options.remoteClient + ": " + ex);
         return;
       }
+      var oldTargets = t.targets;
+      var oldTargetsById = t.targetsById||{};
       t.targets = json;
       t.targetsById = {};
-      var regex = new RegExp("localhost:" + t.options.remoteClientPort);
-      json.forEach(function(target) {
-        if (target.devtoolsFrontendUrl)
-          target.originalDevtoolsFrontendUrl = target.devtoolsFrontendUrl;
-        target.devtoolsFrontendUrl = "/devtools/inspector.html?ws=localhost:" + t.options.listenPort + "/devtools/page/" + target.id;
-        if (target.webSocketDebuggerUrl)
-          target.originalWebSocketDebuggerUrl = target.webSocketDebuggerUrl;
-        target.webSocketDebuggerUrl = "ws://localhost:" + t.options.listenPort + "/devtools/page/" + target.id;
-        target.title += " (proxied)";
-        
-        t.targetsById[target.id] = target;
-      });
+      for (var i = 0; i < t.targets.length; i++) {
+        var target = t.targets[i];
+        t.targets[i] = t._addTarget(target, oldTargetsById[target.id]);
+      }
     });
+  }
+  
+  /**
+   * Adds a target
+   */
+  _addTarget(src, target) {
+    const RESERVED_KEYWORDS = [ 
+      "description", "id", "title", "type", "url", "devtoolsFrontendUrl", "webSocketDebuggerUrl", 
+      "originalDevtoolsFrontendUrl", "originalWebSocketDebuggerUrl" ];
+    
+    var t = this;
+    if (!target)
+      target = {};
+
+    for (var name in src)
+      target[name] = src[name];
+
+    if (target.devtoolsFrontendUrl)
+      target.originalDevtoolsFrontendUrl = target.devtoolsFrontendUrl;
+    target.devtoolsFrontendUrl = "/devtools/inspector.html?ws=localhost:" + t.options.listenPort + "/devtools/page/" + target.id;
+    if (target.webSocketDebuggerUrl)
+      target.originalWebSocketDebuggerUrl = target.webSocketDebuggerUrl;
+    target.webSocketDebuggerUrl = "ws://localhost:" + t.options.listenPort + "/devtools/page/" + target.id;
+    target.title += " (proxied)";
+
+    if (target.numberOfClients === undefined)
+      target.numberOfClients = 0;
+    
+    return t.targetsById[target.id] = target;
   }
 }
 
@@ -630,7 +828,7 @@ function httpGet(options) {
       });
 
       response.on('end', function () {
-        resolve(str);
+        resolve({ data: str, response: response });
       });
     });
     req.on('error', reject);
