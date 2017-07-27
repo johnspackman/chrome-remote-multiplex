@@ -629,6 +629,11 @@ var MultiplexServer = function (_EventEmitter4) {
     return _this8;
   }
 
+  /**
+   * Starts the HTTP server
+   */
+
+
   _createClass(MultiplexServer, [{
     key: 'listen',
     value: function listen() {
@@ -697,7 +702,7 @@ var MultiplexServer = function (_EventEmitter4) {
         });
       }
 
-      // Gets JSON from the remote server and copies it to the client
+      // Gets data from the remote server and copies it to the client
       function copyToClient(req, res) {
         return httpGet({
           hostname: t.options.remoteClientHostname,
@@ -785,7 +790,7 @@ var MultiplexServer = function (_EventEmitter4) {
       app.get('/json/protocol', copyToClient);
       app.get('/json/activate', copyToClient);
 
-      var webServer = Http.createServer(app);
+      var webServer = this.webServer = Http.createServer(app);
       var proxies = this._proxies = {};
 
       // Upgrade the connection from ExpressJS
@@ -855,8 +860,8 @@ var MultiplexServer = function (_EventEmitter4) {
   }, {
     key: 'close',
     value: function close() {
-      this.express.close();
-      this.express = null;
+      this.webServer.close();
+      this.webServer = null;
     }
 
     /**
@@ -925,12 +930,64 @@ var MultiplexServer = function (_EventEmitter4) {
 }(EventEmitter);
 
 /**
+ * API for remote control of the MultiplexServer
+ */
+
+
+exports.default = MultiplexServer;
+
+var ClientApi = exports.ClientApi = function () {
+  function ClientApi(options) {
+    _classCallCheck(this, ClientApi);
+
+    options = options || {};
+    var remoteClient = options.remoteClient;
+    if (remoteClient !== undefined) {
+      var m = remoteClient.match(/^([^:]+)(:([0-9]+))?$/);
+      if (m) {
+        options.remoteClientHostname = m[1];
+        options.remoteClientPort = m[3];
+      } else {
+        throw new Error("Cannot interpret remoteClient - found " + remoteClient + ", expected something like 'localhost:9222'");
+      }
+    }
+    this.options = {
+      remoteClientHostname: options.remoteClientHostname || "localhost",
+      remoteClientPort: options.remoteClientPort || 9222
+    };
+    this.options.remoteClient = this.options.remoteClientHostname + ":" + this.options.remoteClientPort;
+  }
+
+  /**
+   * Enables auto close for a specific target 
+   */
+
+
+  _createClass(ClientApi, [{
+    key: 'autoClose',
+    value: function autoClose(id) {
+      var t = this;
+      return httpGet({
+        hostname: t.options.remoteClientHostname,
+        port: t.options.remoteClientPort,
+        path: '/json/auto-close/' + id,
+        method: 'GET'
+      }).then(function (obj) {
+        res.send(obj.data);
+        return obj.data;
+      });
+    }
+  }]);
+
+  return ClientApi;
+}();
+
+/**
  * Does a simple HTTP GET
  * @return Promise - payload is the response context
  */
 
 
-exports.default = MultiplexServer;
 function httpGet(options) {
   return new Promise(function (resolve, reject) {
     var req = Http.request(options, function (response) {

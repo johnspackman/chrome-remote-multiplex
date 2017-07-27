@@ -483,6 +483,7 @@ class RemoteDebuggerProxy extends EventEmitter {
 const DEFAULT_DEVTOOLS_URL = "https://chrome-devtools-frontend.appspot.com/serve_file/@4b9102f9588fb6cf639a6165fd4777658d5ade0d/inspector.html?";
 
 export default class MultiplexServer extends EventEmitter {
+
   constructor(options) {
     super();
     options = options||{};
@@ -505,7 +506,10 @@ export default class MultiplexServer extends EventEmitter {
     };
     this.options.remoteClient = this.options.remoteClientHostname + ":" + this.options.remoteClientPort;
   }
-
+  
+  /**
+   * Starts the HTTP server
+   */
   listen() {
     const t = this;
     
@@ -586,7 +590,7 @@ export default class MultiplexServer extends EventEmitter {
       });
     }
     
-    // Gets JSON from the remote server and copies it to the client
+    // Gets data from the remote server and copies it to the client
     function copyToClient(req, res) {
       return httpGet({
         hostname: t.options.remoteClientHostname,
@@ -609,7 +613,7 @@ export default class MultiplexServer extends EventEmitter {
           res.send(JSON.stringify(t.targets, null, 2));
         })
         .catch(reportHttpError.bind(this, req));
-    });
+                                                                                                                                  });
     
     // REST API: create a new target
     app.get('/json/new', (req, res) => {
@@ -682,7 +686,7 @@ export default class MultiplexServer extends EventEmitter {
     app.get('/json/protocol', copyToClient);
     app.get('/json/activate', copyToClient);
 
-    const webServer = Http.createServer(app);
+    const webServer = this.webServer = Http.createServer(app);
     const proxies = this._proxies = {};
 
     // Upgrade the connection from ExpressJS
@@ -750,8 +754,8 @@ export default class MultiplexServer extends EventEmitter {
    * Shuts down
    */
   close() {
-    this.express.close();
-    this.express = null;
+    this.webServer.close();
+    this.webServer = null;
   }
   
   /**
@@ -814,6 +818,47 @@ export default class MultiplexServer extends EventEmitter {
       target.numberOfClients = 0;
     
     return t.targetsById[target.id] = target;
+  }
+}
+
+/**
+ * API for remote control of the MultiplexServer
+ */
+export class ClientApi {
+  
+  constructor(options) {
+    options = options||{};
+    var remoteClient = options.remoteClient;
+    if (remoteClient !== undefined) {
+      var m = remoteClient.match(/^([^:]+)(:([0-9]+))?$/);
+      if (m) {
+        options.remoteClientHostname = m[1];
+        options.remoteClientPort = m[3];
+      } else {
+        throw new Error("Cannot interpret remoteClient - found " + remoteClient + ", expected something like 'localhost:9222'");
+      }
+    }
+    this.options = {
+      remoteClientHostname: options.remoteClientHostname||"localhost",
+      remoteClientPort: options.remoteClientPort||9222
+    };
+    this.options.remoteClient = this.options.remoteClientHostname + ":" + this.options.remoteClientPort;
+  }
+  
+  /**
+   * Enables auto close for a specific target 
+   */
+  autoClose(id) {
+    var t = this;
+    return httpGet({
+      hostname: t.options.remoteClientHostname,
+      port: t.options.remoteClientPort,
+      path: '/json/auto-close/' + id,
+      method: 'GET'
+    }).then((obj) => {
+      res.send(obj.data);
+      return obj.data;
+    });
   }
 }
 
