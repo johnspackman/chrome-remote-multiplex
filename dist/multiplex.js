@@ -966,15 +966,13 @@ var ClientApi = exports.ClientApi = function () {
   _createClass(ClientApi, [{
     key: 'autoClose',
     value: function autoClose(id) {
-      var t = this;
       return httpGet({
-        hostname: t.options.remoteClientHostname,
-        port: t.options.remoteClientPort,
+        hostname: this.options.remoteClientHostname,
+        port: this.options.remoteClientPort,
         path: '/json/auto-close/' + id,
         method: 'GET'
       }).then(function (obj) {
-        res.send(obj.data);
-        return obj.data;
+        return obj && obj.data;
       });
     }
   }]);

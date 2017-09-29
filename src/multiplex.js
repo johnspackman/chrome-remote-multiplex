@@ -849,16 +849,12 @@ export class ClientApi {
    * Enables auto close for a specific target 
    */
   autoClose(id) {
-    var t = this;
     return httpGet({
-      hostname: t.options.remoteClientHostname,
-      port: t.options.remoteClientPort,
+      hostname: this.options.remoteClientHostname,
+      port: this.options.remoteClientPort,
       path: '/json/auto-close/' + id,
       method: 'GET'
-    }).then((obj) => {
-      res.send(obj.data);
-      return obj.data;
-    });
+    }).then((obj) => obj && obj.data);
   }
 }
 
