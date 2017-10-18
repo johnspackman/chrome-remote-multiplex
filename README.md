@@ -2,6 +2,11 @@
 Proxy Server application which allows *multiple* Chrome DevTools Clients to simultaneously connect to a *single* Remote Debugger 
 (ie Chrome Headless) instance.
 
+
+**NOTE** This project appears to be obsolete now that Chrome supports multiple clients natively - please see 
+https://developers.google.com/web/updates/2017/10/devtools-release-notes#multi-client for details
+
+
 Google Chrome Headless (or any other Devtools Protocol implementation) only allows one client to control
 it at any particular time; this means that if you have an application which uses 
 [chrome-remote-interface](https://github.com/cyrus-and/chrome-remote-interface)
